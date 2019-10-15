@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
+#include <stdio.h>
 
 const size_t GRID_SIZE = 100;
 const size_t BLOCK_SIZE = 256;
@@ -16,11 +17,24 @@ void dotProduct(
     	__shared__ float cache[ BLOCK_SIZE ];
 	// caching
     	int idx_ = blockIdx.x * blockDim.x + threadIdx.x;
-	
-    	__syncthreads(); 
+	cache[threadIdx.x] = cVectorA[idx_] * cVectorB[idx_];
 
-	// gunakan idx_ untuk mentrace ukuran block
+    	__syncthreads(); 
 	
+	// gunakan idx_ untuk mentrace ukuran block		
+	idx_ = BLOCK_SIZE/2;
+
+	while(idx_ > 0)
+	{
+		if (threadIdx.x < idx_){
+			cache[threadIdx.x] = cache[threadIdx.x] + cache[threadIdx.x + (idx_)];
+		}
+	
+		__syncthreads();
+
+		idx_ = idx_ / 2;
+	}
+
 	//hasil akhir pada cache[0]
 	if (threadIdx.x == 0) dotProductSebagian[blockIdx.x] = cache[0];
 }
