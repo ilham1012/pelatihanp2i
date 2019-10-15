@@ -1,7 +1,6 @@
 #include <iostream>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <stdio.h>
 
 const size_t GRID_SIZE = 100;
 const size_t BLOCK_SIZE = 256;
@@ -15,23 +14,32 @@ void dotProduct(
 	const int cJumlahElemen)
 {
     	__shared__ float cache[ BLOCK_SIZE ];
-	// caching
+	// index global(?) = id_thread + stride_block
     	int idx_ = blockIdx.x * blockDim.x + threadIdx.x;
+	
+	// caching; hasil perkalian disimpan di shared memory block masing2, dgn threadIdx sbg index
 	cache[threadIdx.x] = cVectorA[idx_] * cVectorB[idx_];
-
+	
+	// sync karena harus menunggu semua perkalian beres dulu
     	__syncthreads(); 
 	
-	// gunakan idx_ untuk mentrace ukuran block		
+	// gunakan idx_ untuk mentrace ukuran block
+	// misal ukuran 256, dibagi 2 karena ditambahkan stgh awal dgn stgh akhir, hasilnya ukuran tgl stgh		
 	idx_ = BLOCK_SIZE/2;
 
+	// loop sampai block_size sisa 1 (256 -> 128 -> ... -> 2 _> 1)
 	while(idx_ > 0)
 	{
+		// yg diisi hanya stgh index awal
 		if (threadIdx.x < idx_){
+			// jumlahkan; misal size 64, idx[0] ditambahkan dgn idx[32], idx[1] + idx[33] dst.
 			cache[threadIdx.x] = cache[threadIdx.x] + cache[threadIdx.x + (idx_)];
 		}
-	
-		__syncthreads();
 
+		// sync lagi u/ menunggu penjumlahan selesai
+		__syncthreads();
+		
+		// ukuran block menjadi setengahnya
 		idx_ = idx_ / 2;
 	}
 
